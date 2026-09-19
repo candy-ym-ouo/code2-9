@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createApp } from '../app.js';
+import { advanceDay } from '../engine.js';
 import { GameStore } from '../store.js';
 
 test('HTTP API 完成读取、预览、结算和重置闭环', async (context) => {
@@ -67,6 +68,9 @@ test('HTTP API 完成读取、预览、结算和重置闭环', async (context) =
   assert.equal(duplicateAdvance.status, 409);
   const stateAfterDuplicate = await request('/api/game');
   assert.equal(stateAfterDuplicate.body.state.day, 2);
+  // 重复结算不改写既有关系快照与关系值
+  assert.deepEqual(stateAfterDuplicate.body.state.lastReport, advanceResponse.body.report);
+  assert.deepEqual(stateAfterDuplicate.body.state.relations, advanceResponse.body.state.relations);
 
   const invalidAssignments = await request('/api/game/plan/preview', {
     method: 'POST',
@@ -105,6 +109,27 @@ test('游戏进度写入磁盘后可由新 Store 实例恢复', async () => {
 
   assert.equal(reloadedState.reputation, 77);
   assert.equal(reloadedState.day, 6);
+  fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+});
+
+test('刷新（重新加载存档）不改写既有关系快照', () => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'sky-post-snapshot-'));
+  const dataFile = path.join(temporaryDirectory, 'state.json');
+  const store = new GameStore(dataFile, { seed: 'snapshot-reload' });
+  const initial = store.load();
+  const letter = initial.letters.find((item) => item.status === 'inbox');
+  const report = store.mutate((state) => advanceDay(state, [{
+    letterId: letter.id,
+    courierId: 'comet',
+    targetIslandId: letter.recipientIslandId,
+    order: 0
+  }]));
+  assert.ok(report.relationChanges.length > 0);
+  assert.ok(report.relationChanges.every((change) => Array.isArray(change.sources)));
+
+  const reloaded = new GameStore(dataFile, { seed: 'snapshot-reload' }).load();
+  assert.deepEqual(reloaded.lastReport.relationChanges, report.relationChanges);
+  assert.deepEqual(reloaded.relations, store.getState().relations);
   fs.rmSync(temporaryDirectory, { recursive: true, force: true });
 });
 

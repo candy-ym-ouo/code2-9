@@ -243,7 +243,7 @@ function App() {
           <MapPanel game={game} preview={preview} />
           <div className="overview-split">
             <WeatherPanel wind={game.wind} />
-            <RelationsPanel game={game} relationChanges={projection?.relationChanges} />
+            <RelationsPanel game={game} relationChanges={projection?.relationChanges} lastReport={game.lastReport} />
           </div>
         </div>
 

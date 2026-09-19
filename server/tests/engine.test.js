@@ -153,6 +153,43 @@ test('关系触及边界时结算报告记录实际变化量', () => {
   assert.ok(change.requestedDelta < change.delta);
 });
 
+test('关系变化记录可追溯的来源邮件', () => {
+  const state = createInitialState({ seed: 'relation-sources' });
+  const letter = state.letters[0];
+  letter.deadlineHour = 23;
+  const key = relationKey(letter.originIslandId, letter.recipientIslandId);
+  const wrongTarget = state.islands.find((island) => (
+    island.id !== 'skyport' &&
+    island.id !== letter.recipientIslandId &&
+    island.id !== letter.originIslandId
+  ));
+  const secondLetter = { ...letter, id: 'L99-99' };
+  state.letters.push(secondLetter);
+
+  const assignments = [
+    assignmentFor(state, letter, 'comet', letter.recipientIslandId),
+    assignmentFor(state, secondLetter, 'zephyr', wrongTarget.id)
+  ];
+  const preview = previewPlan(state, assignments);
+  assert.equal(preview.valid, true);
+
+  const report = advanceDay(state, assignments);
+  const change = report.relationChanges.find((item) => item.key === key);
+
+  assert.ok(change);
+  assert.equal(change.sources.length, 2);
+  const onTimeSource = change.sources.find((source) => source.letterId === letter.id);
+  const wrongSource = change.sources.find((source) => source.letterId === secondLetter.id);
+  assert.equal(onTimeSource.outcome, 'on-time');
+  assert.equal(onTimeSource.delta, 1 + letter.urgency);
+  assert.equal(wrongSource.outcome, 'wrong');
+  assert.equal(wrongSource.delta, -(3 + letter.urgency * 2));
+  const sourceSum = change.sources.reduce((sum, source) => sum + source.delta, 0);
+  assert.equal(change.requestedDelta, sourceSum);
+  // 结算快照与当日报告一致，后续可被面板直接展示
+  assert.deepEqual(state.lastReport.relationChanges, report.relationChanges);
+});
+
 test('每次结算都会递增用于防重复提交的版本号', () => {
   const state = createInitialState({ seed: 'revision' });
   assert.equal(state.revision, 0);

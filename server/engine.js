@@ -453,27 +453,33 @@ function collectPlanEffects(state, preparedRoutes, unassignedLetters) {
         firstIslandId: key.split(':')[0],
         secondIslandId: key.split(':')[1],
         delta: 0,
-        reasons: []
+        reasons: [],
+        sources: []
       };
 
       if (result.wrong) {
+        const relationDelta = -(3 + urgency * 2);
         projection.wrong += 1;
         projection.reputationDelta -= 2 + urgency;
         projection.creditsDelta -= urgency * 2;
-        currentChange.delta -= 3 + urgency * 2;
+        currentChange.delta += relationDelta;
         currentChange.reasons.push(`${letter.id} 误投至${result.targetName}`);
+        currentChange.sources.push({ letterId: letter.id, outcome: 'wrong', delta: relationDelta });
       } else if (result.late) {
         projection.late += 1;
         projection.reputationDelta -= 1;
         projection.creditsDelta += Math.max(1, 4 - urgency);
         currentChange.delta += 1;
         currentChange.reasons.push(`${letter.id} 逾时送达`);
+        currentChange.sources.push({ letterId: letter.id, outcome: 'late', delta: 1 });
       } else {
+        const relationDelta = 1 + urgency;
         projection.onTime += 1;
         projection.reputationDelta += urgency;
         projection.creditsDelta += urgency * 6;
-        currentChange.delta += 1 + urgency;
+        currentChange.delta += relationDelta;
         currentChange.reasons.push(`${letter.id} 准时送达`);
+        currentChange.sources.push({ letterId: letter.id, outcome: 'on-time', delta: relationDelta });
       }
 
       relationMap.set(key, currentChange);
