@@ -90,6 +90,64 @@ test('HTTP API 完成读取、预览、结算和重置闭环', async (context) =
   assert.equal(resetResponse.body.state.phase, 'planning');
 });
 
+test('刷新与重复结算不会改写既有关系快照', async (context) => {
+  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'sky-post-snapshot-'));
+  const dataFile = path.join(temporaryDirectory, 'state.json');
+  const store = new GameStore(dataFile, { seed: 'snapshot-seed' });
+  store.load();
+  const server = createApp({ store, clientDist: null }).listen(0);
+  context.after(() => {
+    server.close();
+    fs.rmSync(temporaryDirectory, { recursive: true, force: true });
+  });
+
+  await new Promise((resolve) => server.once('listening', resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const request = async (url, options) => {
+    const response = await fetch(`${baseUrl}${url}`, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    return { status: response.status, body: await response.json() };
+  };
+
+  const game = (await request('/api/game')).body.state;
+  const letter = game.letters.find((item) => item.status === 'inbox');
+  const advanceBody = JSON.stringify({
+    assignments: [{
+      letterId: letter.id,
+      courierId: 'comet',
+      targetIslandId: letter.recipientIslandId,
+      order: 0
+    }],
+    expectedRevision: game.revision
+  });
+  const advanceResponse = await request('/api/game/day/advance', {
+    method: 'POST',
+    body: advanceBody
+  });
+  assert.equal(advanceResponse.status, 200);
+
+  const snapshot = advanceResponse.body.state.lastReport;
+  assert.ok(snapshot.relationChanges.length > 0);
+  assert.ok(snapshot.relationChanges.every((change) => (
+    Array.isArray(change.sources) && change.sources.every((source) => typeof source.letterId === 'string')
+  )));
+
+  // 重复结算同一请求会被拒绝，且快照保持原样。
+  const duplicate = await request('/api/game/day/advance', {
+    method: 'POST',
+    body: advanceBody
+  });
+  assert.equal(duplicate.status, 409);
+  const afterDuplicate = (await request('/api/game')).body.state;
+  assert.deepEqual(afterDuplicate.lastReport, snapshot);
+
+  // 刷新（新 Store 实例重新读取存档）后快照不变，也不触发写回。
+  const reloaded = new GameStore(dataFile, { seed: 'snapshot-seed' }).load();
+  assert.deepEqual(reloaded.lastReport, snapshot);
+});
+
 test('游戏进度写入磁盘后可由新 Store 实例恢复', async () => {
   const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'sky-post-store-'));
   const dataFile = path.join(temporaryDirectory, 'state.json');

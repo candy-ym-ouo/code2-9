@@ -611,8 +611,87 @@ code {
 .relation-track .hostile { background: var(--red); }
 
 .relation-value em {
+  position: relative;
   font-size: 9px;
   font-style: normal;
+  text-align: right;
+  cursor: help;
+}
+
+.relation-value em:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.relation-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  display: none;
+  width: 236px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: rgba(8, 20, 33, 0.97);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 10px;
+  text-align: left;
+  cursor: default;
+}
+
+.relation-row:nth-last-child(-n+2) .relation-tip {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+.relation-value em:hover .relation-tip,
+.relation-value em:focus .relation-tip,
+.relation-value em:focus-within .relation-tip {
+  display: grid;
+  gap: 6px;
+}
+
+.relation-tip-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  color: #b3c5d5;
+  line-height: 1.5;
+}
+
+.relation-tip-line code {
+  color: var(--cyan);
+}
+
+.relation-tip-line > span {
+  flex: 1;
+}
+
+.relation-tip-line b {
+  font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.relation-tip-limit {
+  padding-top: 6px;
+  border-top: 1px dashed var(--line);
+  color: var(--amber);
+  line-height: 1.5;
+}
+
+.relation-footnote {
+  display: grid;
+  gap: 4px;
+  padding: 0 20px 16px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.relation-footnote .relation-source {
+  color: #9fc6d8;
 }
 
 .positive { color: var(--green) !important; }

@@ -153,6 +153,27 @@ test('关系触及边界时结算报告记录实际变化量', () => {
   assert.ok(change.requestedDelta < change.delta);
 });
 
+test('关系变化记录来源邮件，预演与结算快照均可追溯', () => {
+  const state = createInitialState({ seed: 'relation-sources' });
+  const letter = state.letters[0];
+  const key = relationKey(letter.originIslandId, letter.recipientIslandId);
+  const assignment = assignmentFor(state, letter, 'comet');
+
+  const preview = previewPlan(state, [assignment]);
+  const projected = preview.projection.relationChanges.find((item) => item.key === key);
+  assert.ok(projected.sources.some((source) => (
+    source.letterId === letter.id && typeof source.note === 'string' && Number.isFinite(source.delta)
+  )));
+
+  const report = advanceDay(state, [assignment]);
+  const settled = report.relationChanges.find((item) => item.key === key);
+  assert.ok(settled.sources.some((source) => source.letterId === letter.id));
+  assert.deepEqual(
+    state.lastReport.relationChanges.find((item) => item.key === key).sources,
+    settled.sources
+  );
+});
+
 test('每次结算都会递增用于防重复提交的版本号', () => {
   const state = createInitialState({ seed: 'revision' });
   assert.equal(state.revision, 0);

@@ -45,7 +45,16 @@ function hasValidReport(report) {
     typeof change.secondIslandName === 'string' &&
     Number.isFinite(change.delta) &&
     Array.isArray(change.reasons) &&
-    change.reasons.every((reason) => typeof reason === 'string')
+    change.reasons.every((reason) => typeof reason === 'string') &&
+    (change.sources === undefined || (
+      Array.isArray(change.sources) &&
+      change.sources.every((source) => (
+        typeof source?.letterId === 'string' &&
+        typeof source.note === 'string' &&
+        Number.isFinite(source.delta) &&
+        ['on-time', 'late', 'wrong', 'wrong-late'].includes(source.outcome)
+      ))
+    ))
   ));
 }
 
